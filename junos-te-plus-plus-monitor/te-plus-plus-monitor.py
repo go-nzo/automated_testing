@@ -18,6 +18,8 @@ from jnpr.junos.utils.config import Config
 from jnpr.junos.exception import *
 from jnpr.junos.factory import loadyaml
 from jnpr.junos.op import *
+from jnpr.junos.factory.factory_loader import FactoryLoader
+
 
 # External
 import yaml
@@ -25,7 +27,8 @@ import paramiko
 import csv
 from influxdb.influxdb08 import InfluxDBClient
 from pprint import pprint
-from pprint import pprint
+from glob import glob
+from jinja2 import Template
 
 
 #################################################
@@ -77,11 +80,17 @@ def get_member_lsp_summary (containerlsp,dev,db):
 
 # Function with RPC to obtain member-lsps stats 
 
-def get_member_lsp_stats (yamlfile,dev,db):
+def get_member_lsp_stats (varfile,containerlsp,dev,db):
 
+	# Opening Jinja2 template
+	with open(glob(varfile)[0]) as t_fh:
+		t_format = t_fh.read()
+
+	yamlsnippet = Template(t_format)
+	
 	# RPC to obtain container-lsp stats
-	memberlspstats = loadyaml(yamlfile)
-	globals().update(memberlspstats)
+	memberlspstats = yaml.load(yamlsnippet.render(masterlsp=containerlsp))
+	globals().update(FactoryLoader().load(memberlspstats))
 	lspstats = MemberLSPStatsTable(dev)
 	lspstats.get()
 
@@ -247,6 +256,8 @@ parse.add_argument('-duration', '--duration', required=False, default='60', dest
 
 parse.add_argument('-interval', '--interval', required=False, default='30', dest='interval', help='data scan interval in seconds')
 
+parse.add_argument('-containerlsp', '--containerlsp', required=False, default='Jaen-to-Soria-DYN-AUTOBW-TE++', dest='containerlsp', help='TE++ container-lsp to monitor')
+
 #################################################
 
 # Main function
@@ -262,7 +273,8 @@ def main ():
 	args = parse.parse_args()
 	durationtime = int(args.duration)*60
 	interval = int(args.interval)
-	logging.error('---- Starting test for %s minutes, scanning data every %s seconds',int(args.duration),interval)
+	contlsp = args.containerlsp
+	logging.error('---- Starting test for %s minutes, scanning container-lsp %s data every %s seconds',int(args.duration),contlsp,interval)
 
 	#################################################
 
@@ -293,7 +305,7 @@ def main ():
 	    logging.info('---- Connection to DUT: [OK]')
 	    
 	except Exception as err:
-		logging.error('!!! DUT connection failure due to', err)
+		logging.error('!!! DUT connection failure due to %s', err)
 		sys.exit('---- Could not connect to DUT: [NOK]')
 
 	#################################################
@@ -301,7 +313,7 @@ def main ():
 	# Initialize container-LSP, clear all stats
 	try:
 		# Create InlfuxDB and initialize everything
-	 	initialize('Jaen-to-Soria-DYN-AUTOBW-TE++',dev)
+	 	initialize(contlsp,dev)
 	 	logging.info('---- Initializing DUT stats and creating InfluxDB: [OK]')
 
 	except:
@@ -321,8 +333,8 @@ def main ():
 		i = i+1
 		localsystemtime = dev.rpc.get_system_uptime_information()
 		logging.info("//// DUT timestamp:  %s ////",localsystemtime.findtext('current-time/date-time'))
-		get_member_lsp_summary ('Jaen-to-Soria-DYN-AUTOBW-TE++',dev,clientdb)
-		get_member_lsp_stats ('show-member-lsp-stats.yml',dev,clientdb)
+		get_member_lsp_summary (contlsp,dev,clientdb)
+		get_member_lsp_stats ('show-member-lsp-stats.j2',contlsp,dev,clientdb)
 		get_member_lsp_bw ('show-member-lsp-bw.yml',dev,clientdb)
 		get_aggr_lsp_bw ('show-container-lsp-bw.yml',dev,clientdb)
 		get_input_ifl_stats ('xe-0/0/0.1020',dev,clientdb)
@@ -343,7 +355,7 @@ def main ():
 		# Abort existing connections
 		test_ixnet_disconnect(ixNet)
 
-		logging.error('DUT connection closure failure due to', err)
+		logging.error('DUT connection closure failure due to %s', err)
 		sys.exit('---- Could not disconnect from DUT: [NOK]')
 
 	#################################################
