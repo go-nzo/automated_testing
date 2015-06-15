@@ -271,6 +271,12 @@ parse.add_argument('-interval', '--interval', required=False, default='30', dest
 
 parse.add_argument('-containerlsp', '--containerlsp', required=False, default='Jaen-to-Soria-DYN-AUTOBW-TE++', dest='containerlsp', help='TE++ container-lsp to monitor')
 
+parse.add_argument('-portfwd', '--portfwd', required=False, default='8001', dest='portfwd', help='Local port forwarding used in rule to ensure DUT Netconf over ssh reachability')
+
+parse.add_argument('-username', '--username', required=False, default='gonzalo', dest='username', help='DUT username for Netconf over ssh reachability')
+
+parse.add_argument('-inputifl', '--inputifl', required=False, default='xe-0/0/0.1020', dest='inputifl', help='Input logical interface where traffic is injected at DUT')
+
 #################################################
 
 # Main function
@@ -287,6 +293,9 @@ def main ():
 	durationtime = int(args.duration)*60
 	interval = int(args.interval)
 	contlsp = args.containerlsp
+	portfwd = args.portfwd
+	username = args.username
+	inputifl = args.inputifl
 	logging.error('---- Starting test for %s minutes, scanning container-lsp %s data every %s seconds',int(args.duration),contlsp,interval)
 
 	#################################################
@@ -311,7 +320,7 @@ def main ():
 	#################################################
 
 	# Opening connection to DUT 
-	dev = Device(host='localhost.localdomain', port=8002, user='gonzalo')
+	dev = Device(host='localhost.localdomain', port=portfwd, user=username)
 
 	try:
 	    dev.open()
@@ -344,13 +353,15 @@ def main ():
 	while (int(time.time())<=finaltimestamp):
 		logging.info("###############  Test interation %s ############### ",i)
 		i = i+1
+		# Extract current timestamp for tracing purposes
 		localsystemtime = dev.rpc.get_system_uptime_information()
 		logging.info("//// DUT timestamp:  %s ////",localsystemtime.findtext('current-time/date-time'))
+		# Invoke function to obtain number of member LSPs
 		get_member_lsp_summary (contlsp,dev,clientdb)
 		get_member_lsp_stats ('show-member-lsp-stats.j2',contlsp,dev,clientdb)
 		get_member_lsp_bw ('show-member-lsp-bw.j2',contlsp,dev,clientdb)
 		get_aggr_lsp_bw ('show-container-lsp-bw.j2',contlsp,dev,clientdb)
-		get_input_ifl_stats ('xe-0/0/0.1020',dev,clientdb)
+		get_input_ifl_stats (inputifl,dev,clientdb)
 		time.sleep(interval)
 
 
