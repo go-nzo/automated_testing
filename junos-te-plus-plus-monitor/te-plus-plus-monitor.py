@@ -135,12 +135,18 @@ def get_member_lsp_stats (varfile,containerlsp,dev,db):
 
 # Function with RPC to obtain member-lsps BW 
 
-def get_member_lsp_bw (yamlfile,dev,db):
+def get_member_lsp_bw (varfile,containerlsp,dev,db):
 
-	# RPC to obtain container-lsp stats
-	memberlspbw = loadyaml(yamlfile)
-	globals().update(memberlspbw)
-	lspBW = MemberLSPMemberBWTable(dev)
+	# Opening Jinja2 template
+	with open(glob(varfile)[0]) as t_fh:
+		t_format = t_fh.read()
+
+	yamlsnippet = Template(t_format)
+	
+	# RPC to obtain member-lsp stats
+	memberlspbw = yaml.load(yamlsnippet.render(masterlsp=containerlsp))
+	globals().update(FactoryLoader().load(memberlspbw))
+	lspBW= MemberLSPMemberBWTable(dev)
 	lspBW.get()
 
 	# Initialize variables for sum of lsps
@@ -185,13 +191,20 @@ def get_member_lsp_bw (yamlfile,dev,db):
 
 # Function with RPC to obtain aggregate BW 
 
-def get_aggr_lsp_bw (yamlfile,dev,db):
+def get_aggr_lsp_bw (varfile,containerlsp,dev,db):
 
-	# RPC to obtain container-lsp stats
-	aggrlspbw = loadyaml(yamlfile)
-	globals().update(aggrlspbw)
+	# Opening Jinja2 template
+	with open(glob(varfile)[0]) as t_fh:
+		t_format = t_fh.read()
+
+	yamlsnippet = Template(t_format)
+	
+	# RPC to obtain container-lsp aggregate stats
+	aggrlspbw = yaml.load(yamlsnippet.render(masterlsp=containerlsp))
+	globals().update(FactoryLoader().load(aggrlspbw))
 	containerBW = MemberLSPAggrBWTable(dev)
 	containerBW.get()
+
 
 	for lsp in containerBW:
 		logging.info("Container-LSP %s-- aggregBW %s, currentBW %s",lsp.name, lsp.aggregate_bandwidth, lsp.current_bandwidth)
@@ -335,8 +348,8 @@ def main ():
 		logging.info("//// DUT timestamp:  %s ////",localsystemtime.findtext('current-time/date-time'))
 		get_member_lsp_summary (contlsp,dev,clientdb)
 		get_member_lsp_stats ('show-member-lsp-stats.j2',contlsp,dev,clientdb)
-		get_member_lsp_bw ('show-member-lsp-bw.yml',dev,clientdb)
-		get_aggr_lsp_bw ('show-container-lsp-bw.yml',dev,clientdb)
+		get_member_lsp_bw ('show-member-lsp-bw.j2',contlsp,dev,clientdb)
+		get_aggr_lsp_bw ('show-container-lsp-bw.j2',contlsp,dev,clientdb)
 		get_input_ifl_stats ('xe-0/0/0.1020',dev,clientdb)
 		time.sleep(interval)
 
