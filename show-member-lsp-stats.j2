@@ -1,0 +1,22 @@
+# $Id$
+# Yaml widgets for containet-lsp member-lsp data extraction
+# - MemberLSPStatsTable extracts 'show mpls container-lsp name [..] statistics'
+#    for the container-lsp name Jaen-to-Soria-DYN-AUTOBW-TE++ 
+# - MemberLSPStatsView identifies most relevant fields
+#    including member-lsp-name, pps and bytes per iteration
+---
+MemberLSPStatsTable:  
+ rpc: get-mpls-container-lsp-information
+ args:
+  statistics: True
+  regex: {{ masterlsp }}
+ args_key: regex
+ item: rsvp-session-data/rsvp-session/mpls-lsp
+ key: name
+ view: MemberLSPStatsView
+
+MemberLSPStatsView:
+ fields:
+  name: name
+  packets: lsp-packets
+  bytes: lsp-bytes
