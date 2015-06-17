@@ -155,9 +155,15 @@ def get_member_lsp_bw (varfile,containerlsp,dev,db):
 
 	# Extract relevant information per route
 	for memberlsp in lspBW:
-	 logging.info("Member-LSP %s -- maxavgBW %s, signalBW %s",memberlsp.name, memberlsp.max_avg_bandwidth, memberlsp.signal_bandwidth)
+	 # Variable not present in monitor-bandwidth member-LSPs
+	 try:
+	 	sigBW = get_bps(memberlsp.signal_bandwidth)
+	 except:
+	 	sigBW = 0
+
+	 logging.info("Member-LSP %s -- maxavgBW %s, signalBW %s",memberlsp.name, memberlsp.max_avg_bandwidth, sigBW)
 	 sumlspavgBW = sumlspavgBW + get_bps(memberlsp.max_avg_bandwidth)
-	 sumlspsignalBW = sumlspsignalBW + get_bps(memberlsp.signal_bandwidth)
+	 sumlspsignalBW = sumlspsignalBW + sigBW
 
 	 memberlsp_max_avg_bw_json_body = [{
 	 "name": memberlsp.name + " LSP MaxAvg BW",
@@ -169,7 +175,7 @@ def get_member_lsp_bw (varfile,containerlsp,dev,db):
 	 memberlsp_signal_bw_json_body = [{
 	 "name": memberlsp.name + " LSP Signalled BW",
 	 "columns": ["value"],
-	 "points": [[get_bps(memberlsp.signal_bandwidth)]],
+	 "points": [[sigBW]],
 	 }]
 	 db.write_points(memberlsp_signal_bw_json_body,time_precision='s')
 
