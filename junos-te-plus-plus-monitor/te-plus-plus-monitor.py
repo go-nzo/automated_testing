@@ -121,19 +121,19 @@ def get_member_lsp_stats (varfile,containerlsp,dev,db):
 	# Writing stats and json for sum of all member LSPs stats
 	logging.info("All member LSPs -- packets %s, bytes %s",sumlsppackets, sumlspbytes)
 	sumlsp_packets_json_body = [{
-	 "name": "All member LSP packets",
+	 "name": "All member LSPs packets",
 	 "columns": ["value"],
 	 "points": [[sumlsppackets]],
 	 }]
 	db.write_points(sumlsp_packets_json_body,time_precision='s')
 	sumlsp_bytes_json_body = [{
-	 "name": "All member LSP bytes",
+	 "name": "All member LSPs bytes",
 	 "columns": ["value"],
 	 "points": [[sumlspbytes]],
 	 }]
 	db.write_points(sumlsp_bytes_json_body,time_precision='s')
 
-# Function with RPC to obtain member-lsps BW 
+# Function with RPC to obtain member LSP BW
 
 def get_member_lsp_bw (varfile,containerlsp,dev,db):
 
@@ -176,18 +176,17 @@ def get_member_lsp_bw (varfile,containerlsp,dev,db):
 	# Writing stats and json for sum of all member LSPs stats
 	logging.info("All member LSPs -- maxavgBW %s, signalBW %s",sumlspavgBW, sumlspsignalBW)
 	sumlsp_avgBW_json_body = [{
-	 "name": "All member LSP MaxAvg BW",
+	 "name": "All member LSPs MaxAvg BW",
 	 "columns": ["value"],
 	 "points": [[sumlspavgBW]],
 	 }]
 	db.write_points(sumlsp_avgBW_json_body,time_precision='s')
 	sumlsp_signalBW_json_body = [{
-	 "name": "All member LSP Signalled BW",
+	 "name": "All member LSPs Signalled BW",
 	 "columns": ["value"],
 	 "points": [[sumlspsignalBW]],
 	 }]
 	db.write_points(sumlsp_signalBW_json_body,time_precision='s')
-
 
 # Function with RPC to obtain aggregate BW 
 
@@ -296,7 +295,8 @@ def main ():
 	portfwd = args.portfwd
 	username = args.username
 	inputifl = args.inputifl
-	logging.error('---- Starting test for %s minutes, scanning container-lsp %s data every %s seconds',int(args.duration),contlsp,interval)
+	logging.info('---- Starting test for %s minutes, scanning container-lsp %s and input interface %s data every %s seconds',int(args.duration),contlsp,inputifl,interval)
+	logging.info('---- DUT Netconf over ssh services reachable with username %s and over localport %s forwarding rule',username,portfwd)
 
 	#################################################
 
@@ -331,6 +331,28 @@ def main ():
 		sys.exit('---- Could not connect to DUT: [NOK]')
 
 	#################################################
+
+	# Verify container-lsp existence in DUT 
+
+	try:
+	    lspingress = dev.rpc.get_mpls_container_lsp_information(ingress=True, regex=contlsp)
+
+	except:
+		logging.error('!!! DUT does not include a container-LSP with name %s and ingress sessions: [NOK]', contlsp)
+		sys.exit('---- Could not verify container-LSP at DUT: [NOK]') 	
+
+	#################################################
+
+	# Verify container-lsp existence in DUT with at least 1 ingress session
+
+	if int(lspingress.findtext('rsvp-session-data/display-count')) > 0:
+		logging.info('---- Verified container-LSP with ingress sessions at DUT: [OK]')
+
+	else:
+		logging.error('!!! DUT does not include a single ingress container-LSP with name %s: [NOK]',contlsp)
+		sys.exit('---- Could not verify container-LSP in DUT as ingress LSR: [NOK]')
+
+	#################################################
 	
 	# Initialize container-LSP, clear all stats
 	try:
@@ -359,8 +381,20 @@ def main ():
 		# Invoke function to obtain number of member LSPs
 		get_member_lsp_summary (contlsp,dev,clientdb)
 		get_member_lsp_stats ('show-member-lsp-stats.j2',contlsp,dev,clientdb)
-		get_member_lsp_bw ('show-member-lsp-bw.j2',contlsp,dev,clientdb)
-		get_aggr_lsp_bw ('show-container-lsp-bw.j2',contlsp,dev,clientdb)
+
+
+		# Monitor-bandwidth only container-LSPs do not signal any BW
+		try:
+			get_member_lsp_bw ('show-member-lsp-bw.j2',contlsp,dev,clientdb)
+		except:
+			pass
+
+		# Monitor-bandwidth only container-LSPs do not signal any BW
+		try:
+			get_aggr_lsp_bw ('show-container-lsp-bw.j2',contlsp,dev,clientdb)
+		except:
+			pass
+
 		get_input_ifl_stats (inputifl,dev,clientdb)
 		time.sleep(interval)
 
