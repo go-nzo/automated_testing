@@ -7,9 +7,9 @@ Junos PyEz will be cornerstone for all scripts, but other
 auxiliary libraries and concepts will be included, such
 as the InfluxDB API, Grafana etc.
 
-###### Subprojects:
+## Subprojects:
 
-## * Junos TE++ monitoring script:
+### Junos TE++ monitoring script:
 
 This python monitoring script mainly leverages Junos PyEz and InfluxDB Python APIs to provide a monitoring toolset for the Junos 14.2+ RSVP-TE++ Phase 1 (dynamic BW mgmt using container LSPs) implementation, as described under:
 * http://www.juniper.net/documentation/en_US/junos14.2/topics/concept/dynamic-bandwidth-management-overview.html
